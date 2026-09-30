@@ -4,30 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.hellow.model.Result
 import com.example.hellow.ui.theme.HellowTheme
+import com.example.hellow.viewmodel.CharacterViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,7 +71,6 @@ fun MainScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        // App name header at the top
         Text(
             text = "Hellow",
             style = MaterialTheme.typography.headlineLarge,
@@ -86,14 +78,12 @@ fun MainScreen(
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Label above input field
         Text(
             text = "Enter your name",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Input field for user's name
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
@@ -102,10 +92,8 @@ fun MainScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Spacer pushes the Next button to the bottom of the screen
         Spacer(modifier = Modifier.weight(1f))
 
-        // Next button at the bottom
         Button(
             onClick = {
                 if (name.isNotBlank()) {
@@ -114,9 +102,9 @@ fun MainScreen(
             },
             enabled = name.isNotBlank(),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4CAF50), // Green background
-                contentColor = Color.Black,          // Black text
-                disabledContainerColor = Color(0xFFA5D6A7), // Light green when disabled
+                containerColor = Color(0xFF4CAF50),
+                contentColor = Color.Black,
+                disabledContainerColor = Color(0xFFA5D6A7),
                 disabledContentColor = Color.DarkGray
             ),
             modifier = Modifier
@@ -135,32 +123,110 @@ fun MainScreen(
 fun GreetingScreen(
     name: String,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: CharacterViewModel = viewModel()
 ) {
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        // Greeting with user's name
         Text(
             text = "Hellow $name",
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 4.dp)
         )
 
-        // Subtitle below greeting
         Text(
-            text = "Welcome to the team",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "Search Rick & Morty Characters:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.onSearchQueryChanged(it) },
+            placeholder = { Text("Search character (e.g. Rick)...") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-        // Back button to return to the input screen
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Reactive UI handling based on Result sealed class state
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            when (val state = uiState) {
+                is Result.Loading -> {
+                    CircularProgressIndicator()
+                }
+                is Result.Error -> {
+                    Text(
+                        text = "Error: ${state.exception.localizedMessage ?: "Unknown error"}",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                is Result.Success -> {
+                    val characters = state.data
+                    if (characters.isEmpty()) {
+                        Text(text = "No characters found.")
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(characters) { character ->
+                                Card(
+                                    elevation = CardDefaults.cardElevation(2.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(12.dp)
+                                            .fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        AsyncImage(
+                                            model = character.imageUrl,
+                                            contentDescription = character.name,
+                                            modifier = Modifier
+                                                .size(60.dp)
+                                                .clip(MaterialTheme.shapes.medium)
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column {
+                                            Text(
+                                                text = character.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "${character.species} • ${character.status}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Button(
             onClick = onBack,
             modifier = Modifier
