@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "hellow"
 include(":app")
+include(":sandbox")
