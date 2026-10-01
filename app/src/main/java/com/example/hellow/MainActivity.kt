@@ -27,6 +27,8 @@ import com.example.hellow.model.Result
 import com.example.hellow.model.RickCharacter
 import com.example.hellow.ui.theme.HellowTheme
 import com.example.hellow.viewmodel.CharacterViewModel
+import com.example.hellow.viewmodel.MainViewModel
+import com.example.hellow.viewmodel.UserPreferenceState
 import kotlinx.serialization.Serializable
 
 // --- Type-Safe Navigation Routes ---
@@ -60,56 +62,82 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HellowNavHost(modifier: Modifier = Modifier) {
-    val navController = rememberNavController()
+fun HellowNavHost(
+    modifier: Modifier = Modifier,
+    mainViewModel: MainViewModel = viewModel()
+) {
+    val userState by mainViewModel.userState.collectAsState()
 
-    NavHost(
-        navController = navController,
-        startDestination = HomeRoute,
-        modifier = modifier
-    ) {
-        composable<HomeRoute> {
-            MainScreen(
-                onNextClicked = { name ->
-                    navController.navigate(GreetingRoute(name = name))
-                }
-            )
+    when (val state = userState) {
+        is UserPreferenceState.Loading -> {
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
         }
-        composable<GreetingRoute> { backStackEntry ->
-            val route = backStackEntry.toRoute<GreetingRoute>()
-            GreetingScreen(
-                name = route.name,
-                onCharacterClick = { character ->
-                    navController.navigate(
-                        DetailRoute(
-                            id = character.id,
-                            name = character.name,
-                            status = character.status,
-                            species = character.species,
-                            imageUrl = character.imageUrl
-                        )
+        is UserPreferenceState.Ready -> {
+            val navController = rememberNavController()
+            val startDestination = if (!state.name.isNullOrBlank()) {
+                GreetingRoute(name = state.name)
+            } else {
+                HomeRoute
+            }
+
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+                modifier = modifier
+            ) {
+                composable<HomeRoute> {
+                    MainScreen(
+                        onNextClicked = { name ->
+                            mainViewModel.saveUserName(name) {
+                                navController.navigate(GreetingRoute(name = name)) {
+                                    popUpTo(HomeRoute) { inclusive = true }
+                                }
+                            }
+                        }
                     )
-                },
-                onBack = {
-                    navController.popBackStack()
                 }
-            )
-        }
-        composable<DetailRoute> { backStackEntry ->
-            val route = backStackEntry.toRoute<DetailRoute>()
-            val character = RickCharacter(
-                id = route.id,
-                name = route.name,
-                status = route.status,
-                species = route.species,
-                imageUrl = route.imageUrl
-            )
-            DetailScreen(
-                character = character,
-                onBack = {
-                    navController.popBackStack()
+                composable<GreetingRoute> { backStackEntry ->
+                    val route = backStackEntry.toRoute<GreetingRoute>()
+                    GreetingScreen(
+                        name = route.name,
+                        onCharacterClick = { character ->
+                            navController.navigate(
+                                DetailRoute(
+                                    id = character.id,
+                                    name = character.name,
+                                    status = character.status,
+                                    species = character.species,
+                                    imageUrl = character.imageUrl
+                                )
+                            )
+                        },
+                        onBack = {
+                            navController.popBackStack()
+                        }
+                    )
                 }
-            )
+                composable<DetailRoute> { backStackEntry ->
+                    val route = backStackEntry.toRoute<DetailRoute>()
+                    val character = RickCharacter(
+                        id = route.id,
+                        name = route.name,
+                        status = route.status,
+                        species = route.species,
+                        imageUrl = route.imageUrl
+                    )
+                    DetailScreen(
+                        character = character,
+                        onBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
         }
     }
 }
