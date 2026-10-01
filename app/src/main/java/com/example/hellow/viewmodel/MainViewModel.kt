@@ -18,6 +18,13 @@ sealed interface UserPreferenceState {
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = UserPreferencesRepository(application)
 
+    val userName: StateFlow<String?> = repository.userNameFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
     val userState: StateFlow<UserPreferenceState> = repository.userNameFlow
         .map { name -> UserPreferenceState.Ready(name) }
         .stateIn(

@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +38,7 @@ import kotlinx.serialization.Serializable
 object HomeRoute
 
 @Serializable
-data class GreetingRoute(val name: String)
+object GreetingRoute
 
 @Serializable
 data class DetailRoute(
@@ -80,7 +82,7 @@ fun HellowNavHost(
         is UserPreferenceState.Ready -> {
             val navController = rememberNavController()
             val startDestination = if (!state.name.isNullOrBlank()) {
-                GreetingRoute(name = state.name)
+                GreetingRoute
             } else {
                 HomeRoute
             }
@@ -94,17 +96,15 @@ fun HellowNavHost(
                     MainScreen(
                         onNextClicked = { name ->
                             mainViewModel.saveUserName(name) {
-                                navController.navigate(GreetingRoute(name = name)) {
+                                navController.navigate(GreetingRoute) {
                                     popUpTo(HomeRoute) { inclusive = true }
                                 }
                             }
                         }
                     )
                 }
-                composable<GreetingRoute> { backStackEntry ->
-                    val route = backStackEntry.toRoute<GreetingRoute>()
+                composable<GreetingRoute> {
                     GreetingScreen(
-                        name = route.name,
                         onCharacterClick = { character ->
                             navController.navigate(
                                 DetailRoute(
@@ -115,9 +115,6 @@ fun HellowNavHost(
                                     imageUrl = character.imageUrl
                                 )
                             )
-                        },
-                        onBack = {
-                            navController.popBackStack()
                         }
                     )
                 }
@@ -219,14 +216,49 @@ fun MainContent(
 
 @Composable
 fun GreetingScreen(
-    name: String,
     onCharacterClick: (RickCharacter) -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: CharacterViewModel = viewModel()
+    mainViewModel: MainViewModel = viewModel(),
+    characterViewModel: CharacterViewModel = viewModel()
 ) {
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val uiState by viewModel.uiState.collectAsState()
+    val currentUserName by mainViewModel.userName.collectAsState()
+    val searchQuery by characterViewModel.searchQuery.collectAsState()
+    val uiState by characterViewModel.uiState.collectAsState()
+
+    var showEditDialog by remember { mutableStateOf(false) }
+    var newNameInput by remember { mutableStateOf(currentUserName ?: "") }
+
+    if (showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Your Name") },
+            text = {
+                OutlinedTextField(
+                    value = newNameInput,
+                    onValueChange = { newNameInput = it },
+                    singleLine = true,
+                    placeholder = { Text("Name") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newNameInput.isNotBlank()) {
+                            mainViewModel.saveUserName(newNameInput.trim())
+                            showEditDialog = false
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -234,12 +266,33 @@ fun GreetingScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        Text(
-            text = "Hellow $name",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        // Top Bar with Greeting & Profile Icon
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Hellow ${currentUserName ?: ""}",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(
+                onClick = {
+                    newNameInput = currentUserName ?: ""
+                    showEditDialog = true
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = "Edit Profile",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = "Search Rick & Morty Characters (Tap for details):",
@@ -250,7 +303,7 @@ fun GreetingScreen(
 
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { viewModel.onSearchQueryChanged(it) },
+            onValueChange = { characterViewModel.onSearchQueryChanged(it) },
             placeholder = { Text("Search character (e.g. Rick)...") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
@@ -323,20 +376,6 @@ fun GreetingScreen(
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onBack,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        ) {
-            Text(
-                text = "Back",
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }
