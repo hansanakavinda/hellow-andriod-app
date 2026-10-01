@@ -120,7 +120,25 @@ fun MainScreen(
     modifier: Modifier = Modifier
 ) {
     var name by remember { mutableStateOf("") }
+    MainContent(
+        name = name,
+        onNameChange = { name = it },
+        onNextClicked = {
+            if (name.isNotBlank()) {
+                onNextClicked(name.trim())
+            }
+        },
+        modifier = modifier
+    )
+}
 
+@Composable
+fun MainContent(
+    name: String,
+    onNameChange: (String) -> Unit,
+    onNextClicked: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -142,7 +160,7 @@ fun MainScreen(
 
         OutlinedTextField(
             value = name,
-            onValueChange = { name = it },
+            onValueChange = { onNameChange(it) },
             placeholder = { Text("Name") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
@@ -151,17 +169,13 @@ fun MainScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = {
-                if (name.isNotBlank()) {
-                    onNextClicked(name.trim())
-                }
-            },
+            onClick = onNextClicked,
             enabled = name.isNotBlank(),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF4CAF50),
-                contentColor = Color.Black,
-                disabledContainerColor = Color(0xFFA5D6A7),
-                disabledContentColor = Color.DarkGray
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -391,7 +405,11 @@ fun DetailRow(label: String, value: String) {
 @Composable
 fun MainScreenPreview() {
     HellowTheme {
-        MainScreen(onNextClicked = {})
+        MainContent(
+            name = "Morty",
+            onNameChange = {},
+            onNextClicked = {}
+        )
     }
 }
 
